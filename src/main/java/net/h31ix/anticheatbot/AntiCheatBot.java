@@ -176,26 +176,16 @@ public class AntiCheatBot
         String data = null;
         try {
             data = URLEncoder.encode("issue", "UTF-8") + "=" + URLEncoder.encode(""+id, "UTF-8");
+            data += "&" + URLEncoder.encode("close", "UTF-8") + "=" + URLEncoder.encode("1", "UTF-8");
             data += "&" + URLEncoder.encode("closepass", "UTF-8") + "=" + URLEncoder.encode(System.getenv("BUGS_CLOSE_PASS"), "UTF-8");
             data += "&" + URLEncoder.encode("closedby", "UTF-8") + "=" + URLEncoder.encode(name, "UTF-8");
+            System.out.println("Sending data: "+data);
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
         }
         try {
-            URL url = new URL("http://bugs.h31ix.net/api.php");
-            URLConnection uconn = url.openConnection();
-            uconn.setDoOutput(true);
-            OutputStreamWriter wr = new OutputStreamWriter(uconn.getOutputStream());
-            wr.write(data);
-            wr.flush();
-
-
-            BufferedReader rd = new BufferedReader(new InputStreamReader(uconn.getInputStream()));
-            String line;
-            while ((line = rd.readLine()) != null)
-            {
-                System.out.println(line);
-            }
+            URL url = new URL("http://bugs.h31ix.net/api.php?"+data);
+            url.openConnection();
         } catch (Exception ex) {
             Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -227,7 +217,6 @@ public class AntiCheatBot
                     }
                     else
                     {
-                        System.out.println("Checking for new bug reports...");
                         while (rs.next())
                         {
                             int id = rs.getInt("id");
@@ -278,7 +267,7 @@ public class AntiCheatBot
             buff = null;
             if(line.equals("NONE"))
             {
-                return "Not bug report found by id "+id;
+                return "No bug report found by id "+id;
             }
             else
             {
