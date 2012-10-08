@@ -1,0 +1,1 @@
+bot: sh target/bin/bot
