@@ -197,7 +197,16 @@ public class BotListener extends ListenerAdapter implements Listener
                 {
                     if(sender.getChannelsOpIn().contains(this.channel))
                     {
-                        AntiCheatBot.closeBug(Integer.parseInt(message[1]), sender.getNick());
+                        int id = Integer.parseInt(message[1]);
+                        if(id <= AntiCheatBot.bug_id)
+                        {
+                            AntiCheatBot.closeBug(id, sender.getNick());
+                            event.respond("Closed bug "+id);
+                        }
+                        else
+                        {
+                            event.respond("That bug report doesn't exist yet.");
+                        }
                     }
                     else
                     {

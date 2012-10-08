@@ -37,7 +37,7 @@ public class AntiCheatBot
     private static String sqlUrl = null;
     private static String bugsUrl = null;
     private static String nickservPass = null;
-    private static int bug_id = 0;
+    public static int bug_id = 0;
 
     public static Map<String, String> commands = new ConcurrentHashMap<String, String>();
     public static Map<String, String> messages = new ConcurrentHashMap<String, String>();
@@ -187,6 +187,14 @@ public class AntiCheatBot
             OutputStreamWriter wr = new OutputStreamWriter(uconn.getOutputStream());
             wr.write(data);
             wr.flush();
+
+
+            BufferedReader rd = new BufferedReader(new InputStreamReader(uconn.getInputStream()));
+            String line;
+            while ((line = rd.readLine()) != null)
+            {
+                System.out.println(line);
+            }
         } catch (Exception ex) {
             Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
         }
