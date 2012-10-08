@@ -173,20 +173,15 @@ public class AntiCheatBot
 
     public static void closeBug(int id, String name)
     {
-        String data = null;
         try {
-            data = URLEncoder.encode("issue", "UTF-8") + "=" + URLEncoder.encode(""+id, "UTF-8");
-            data += "&" + URLEncoder.encode("close", "UTF-8") + "=" + URLEncoder.encode("1", "UTF-8");
-            data += "&" + URLEncoder.encode("closepass", "UTF-8") + "=" + URLEncoder.encode(System.getenv("BUGS_CLOSE_PASS"), "UTF-8");
-            data += "&" + URLEncoder.encode("closedby", "UTF-8") + "=" + URLEncoder.encode(name, "UTF-8");
-            System.out.println("Sending data: "+data);
-        } catch (UnsupportedEncodingException ex) {
-            Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        try {
-            URL url = new URL("http://bugs.h31ix.net/api.php?"+data);
-            url.openConnection();
-        } catch (Exception ex) {
+            Connection bugConn = DriverManager.getConnection(bugsUrl);
+            PreparedStatement ps = bugConn.prepareStatement("UPDATE issues SET status=2, closedby=? WHERE id=?");
+            ps.setString(1, name);
+            ps.setInt(2, id);
+            ps.executeUpdate();
+            ps.close();
+            bugConn.close();
+        } catch (SQLException ex) {
             Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
