@@ -193,10 +193,21 @@ public class BotListener extends ListenerAdapter implements Listener
                     String id = message[1];
                     event.respond(AntiCheatBot.getBugDetails(id));
                 }
+                else if(message.length == 3 && message[2].equalsIgnoreCase("close"))
+                {
+                    if(sender.getChannelsOpIn().contains(this.channel))
+                    {
+                        AntiCheatBot.closeBug(Integer.parseInt(message[1]), sender.getNick());
+                    }
+                    else
+                    {
+                        System.out.println("WARNING: "+sender.getNick()+" tried to close a bug without permission.");
+                        event.respond("Insufficient permissions.");
+                    }
+                }
                 else
                 {
-                    System.out.println("WARNING: "+sender.getNick()+" tried to kill bot without permission.");
-                    event.respond("Insufficient permissions.");
+                    event.respond("Usage: .bug [id] [close]");
                 }
             }
         }

@@ -2,8 +2,12 @@ package net.h31ix.anticheatbot;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -23,14 +27,17 @@ import org.pircbotx.PircBotX;
 
 public class AntiCheatBot
 {
-    private static final int DELAY = 10000;
+    private static final int VERSION_DELAY = 300000; // Every 5 minutes
+    private static final int BUGS_DELAY = 60000; // Every minute
     public static String version = null;
     private static PircBotX bot;
     private static Channel channel;
     private static Connection conn = null;
     private static Statement state = null;
     private static String sqlUrl = null;
+    private static String bugsUrl = null;
     private static String nickservPass = null;
+    private static int bug_id = 0;
 
     public static Map<String, String> commands = new ConcurrentHashMap<String, String>();
     public static Map<String, String> messages = new ConcurrentHashMap<String, String>();
@@ -44,6 +51,8 @@ public class AntiCheatBot
         System.out.println("Retrieved latest version");
         connectToSQL();
         System.out.println("Connected to SQL");
+        getBugs();
+        System.out.println("Retrieved latest bugs");
         getNickServPassword();
         System.out.println("Obtained nickserv pass");
         updateQueries();
@@ -148,6 +157,7 @@ public class AntiCheatBot
             @Override
             public void run()
             {
+                System.out.println("Checking for new versions...");
                 Updater updater = new Updater("anticheat");
                 if(version == null)
                 {
@@ -158,7 +168,81 @@ public class AntiCheatBot
                     updateVersion(updater.getLatestVersionString());
                 }
             }
-        }, 0, DELAY);
+        }, 0, VERSION_DELAY);
+    }
+
+    public static void closeBug(int id, String name)
+    {
+        String data = null;
+        try {
+            data = URLEncoder.encode("issue", "UTF-8") + "=" + URLEncoder.encode(""+id, "UTF-8");
+            data += "&" + URLEncoder.encode("closepass", "UTF-8") + "=" + URLEncoder.encode(System.getenv("BUGS_CLOSE_PASS"), "UTF-8");
+            data += "&" + URLEncoder.encode("closedby", "UTF-8") + "=" + URLEncoder.encode(name, "UTF-8");
+        } catch (UnsupportedEncodingException ex) {
+            Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        try {
+            URL url = new URL("http://bugs.h31ix.net/api.php");
+            URLConnection uconn = url.openConnection();
+            OutputStreamWriter wr = new OutputStreamWriter(uconn.getOutputStream());
+            wr.write(data);
+            wr.flush();
+        } catch (Exception ex) {
+            Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private static void getBugs()
+    {
+        if(bugsUrl == null)
+        {
+            bugsUrl = System.getenv("BUGS_DATABASE_URL");
+        }
+        Timer timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask()
+        {
+            @Override
+            public void run()
+            {
+                try
+                {
+                    Connection bugConn = DriverManager.getConnection(bugsUrl);
+                    Statement bugState = bugConn.createStatement();
+                    ResultSet rs = bugState.executeQuery("SELECT id FROM issues ORDER BY id DESC LIMIT 0, 1");
+                    if(bug_id == 0)
+                    {
+                        while (rs.next())
+                        {
+                            bug_id = rs.getInt("id");
+                        }
+                    }
+                    else
+                    {
+                        System.out.println("Checking for new bug reports...");
+                        while (rs.next())
+                        {
+                            int id = rs.getInt("id");
+                            if(id > bug_id)
+                            {
+                                rs = bugState.executeQuery("SELECT * FROM issues ORDER BY id DESC LIMIT 0, "+(id-bug_id));
+                                while (rs.next())
+                                {
+                                    id = rs.getInt("id");
+                                    String type = rs.getInt("type") == 1 ? "Bug report" : "Feature request";
+                                    String user = rs.getString("user");
+                                    String name = rs.getString("name");
+                                    bot.sendMessage(channel, "AntiCheat issue "+Colors.BOLD+id+Colors.NORMAL+" created: "+Colors.BOLD+type+Colors.NORMAL+" by "+Colors.BOLD+user+" | "+name+" | http://bugs.h31ix.net/issues.php?issue="+id);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (SQLException ex)
+                {
+                    Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }, 0, BUGS_DELAY);
     }
 
     private static void updateVersion(String newVersion)
