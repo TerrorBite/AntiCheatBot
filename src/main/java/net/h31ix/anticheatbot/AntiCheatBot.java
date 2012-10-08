@@ -2,6 +2,7 @@ package net.h31ix.anticheatbot;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.sql.Connection;
@@ -25,6 +26,8 @@ public class AntiCheatBot
 {
     private static final int VERSION_DELAY = 300000; // Every 5 minutes
     private static final int BUGS_DELAY = 60000; // Every minute
+    private static final int GITHUB_DELAY = 10000; // Every 10 seconds
+
     public static String version = null;
     private static PircBotX bot;
     private static Channel channel;
@@ -34,7 +37,6 @@ public class AntiCheatBot
     private static String bugsUrl = null;
     private static String nickservPass = null;
     public static int bug_id = 0;
-    private static HookServer server = null;
 
     public static Map<String, String> commands = new ConcurrentHashMap<String, String>();
     public static Map<String, String> messages = new ConcurrentHashMap<String, String>();
@@ -46,6 +48,8 @@ public class AntiCheatBot
         bot = new PircBotX();
         getVersion();
         System.out.println("> Retrieved latest version...");
+        updateCommits();
+        System.out.println("> Updated github commits...");
         connectToSQL();
         System.out.println("> Connected to SQL...");
         getBugs();
@@ -54,10 +58,6 @@ public class AntiCheatBot
         System.out.println("> Obtained nickserv pass...");
         updateQueries();
         System.out.println("> Populated queries...");
-        server = new HookServer();
-        Thread thread = new Thread(server);
-        thread.start();
-        System.out.println("> Started hook server...");
         connectToServer();
         System.out.println("==Connected to server==");
         disconnectFromSQL();
@@ -174,7 +174,8 @@ public class AntiCheatBot
 
     public static void closeBug(int id, String name)
     {
-        try {
+        try
+        {
             Connection bugConn = DriverManager.getConnection(bugsUrl);
             PreparedStatement ps = bugConn.prepareStatement("UPDATE issues SET status=2, closedby=? WHERE id=?");
             ps.setString(1, name);
@@ -182,7 +183,9 @@ public class AntiCheatBot
             ps.executeUpdate();
             ps.close();
             bugConn.close();
-        } catch (SQLException ex) {
+        }
+        catch (SQLException ex)
+        {
             Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -244,12 +247,43 @@ public class AntiCheatBot
         }
     }
 
-    public static void updateCommit(String string)
+    public static void updateCommits()
     {
-        for(String s : string.split("\n"))
+        Timer timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask()
         {
-            bot.sendMessage(channel, s.replaceAll("<b>", Colors.BOLD).replaceAll("</b>", Colors.NORMAL));
-        }
+            @Override
+            public void run()
+            {
+                try
+                {
+                    // Open a connection to the page
+                    URL url = new URL("http://gravitydevelopment.net/util/hook/githubhook.php");
+                    HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+                    httpConn.addRequestProperty("User-Agent", "Mozilla/4.76");
+                    InputStreamReader inStream = new InputStreamReader(httpConn.getInputStream());
+                    BufferedReader buff = new BufferedReader(inStream);
+
+                    String line;
+                    while((line = buff.readLine()) != null)
+                    {
+                        System.out.println("-> got line: "+line);
+                        for(String s : line.split("<br>"))
+                        {
+                            bot.sendMessage(channel, s.replaceAll("<b>", Colors.BOLD).replaceAll("</b>", Colors.NORMAL));
+                        }
+                    }
+                    httpConn = null;
+                    inStream = null;
+                    buff.close();
+                    buff = null;
+                }
+                catch (Exception ex)
+                {
+                    ex.printStackTrace();
+                }
+            }
+        }, 0, GITHUB_DELAY);
     }
 
     private static void updateVersion(String newVersion)
@@ -375,7 +409,6 @@ public class AntiCheatBot
         {
             // Message
             messages.put(input.toLowerCase(), output);
-            System.out.println("put "+input.toLowerCase()+" to "+output);
         }
     }
 
