@@ -2,12 +2,8 @@ package net.h31ix.anticheatbot;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -38,6 +34,7 @@ public class AntiCheatBot
     private static String bugsUrl = null;
     private static String nickservPass = null;
     public static int bug_id = 0;
+    private static HookServer server = null;
 
     public static Map<String, String> commands = new ConcurrentHashMap<String, String>();
     public static Map<String, String> messages = new ConcurrentHashMap<String, String>();
@@ -45,20 +42,24 @@ public class AntiCheatBot
 
     public static void main(String[] args)
     {
-        System.out.println("Starting up...");
+        System.out.println("==Starting up==");
         bot = new PircBotX();
         getVersion();
-        System.out.println("Retrieved latest version");
+        System.out.println("> Retrieved latest version...");
         connectToSQL();
-        System.out.println("Connected to SQL");
+        System.out.println("> Connected to SQL...");
         getBugs();
-        System.out.println("Retrieved latest bugs");
+        System.out.println("> Retrieved latest bugs...");
         getNickServPassword();
-        System.out.println("Obtained nickserv pass");
+        System.out.println("> Obtained nickserv pass...");
         updateQueries();
-        System.out.println("Populated queries");
+        System.out.println("> Populated queries...");
+        server = new HookServer();
+        Thread thread = new Thread(server);
+        thread.start();
+        System.out.println("> Started hook server...");
         connectToServer();
-        System.out.println("Connected to server.");
+        System.out.println("==Connected to server==");
         disconnectFromSQL();
     }
 
@@ -157,7 +158,7 @@ public class AntiCheatBot
             @Override
             public void run()
             {
-                System.out.println("Checking for new versions...");
+                System.out.println("> Checking for new versions...");
                 Updater updater = new Updater("anticheat");
                 if(version == null)
                 {
@@ -198,44 +199,57 @@ public class AntiCheatBot
             @Override
             public void run()
             {
-                try
-                {
-                    Connection bugConn = DriverManager.getConnection(bugsUrl);
-                    Statement bugState = bugConn.createStatement();
-                    ResultSet rs = bugState.executeQuery("SELECT id FROM issues ORDER BY id DESC LIMIT 0, 1");
-                    if(bug_id == 0)
-                    {
-                        while (rs.next())
-                        {
-                            bug_id = rs.getInt("id");
-                        }
-                    }
-                    else
-                    {
-                        while (rs.next())
-                        {
-                            int id = rs.getInt("id");
-                            if(id > bug_id)
-                            {
-                                rs = bugState.executeQuery("SELECT * FROM issues ORDER BY id DESC LIMIT 0, "+(id-bug_id));
-                                while (rs.next())
-                                {
-                                    id = rs.getInt("id");
-                                    String type = rs.getInt("type") == 1 ? "Bug report" : "Feature request";
-                                    String user = rs.getString("user");
-                                    String name = rs.getString("name");
-                                    bot.sendMessage(channel, "AntiCheat issue "+Colors.BOLD+id+Colors.NORMAL+" created: "+Colors.BOLD+type+Colors.NORMAL+" by "+Colors.BOLD+user+" | "+name+" | http://bugs.h31ix.net/issues.php?issue="+id);
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (SQLException ex)
-                {
-                    Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                updateBugs();
             }
         }, 0, BUGS_DELAY);
+    }
+
+    public static void updateBugs()
+    {
+        try
+        {
+            Connection bugConn = DriverManager.getConnection(bugsUrl);
+            Statement bugState = bugConn.createStatement();
+            ResultSet rs = bugState.executeQuery("SELECT id FROM issues ORDER BY id DESC LIMIT 0, 1");
+            if(bug_id == 0)
+            {
+                while (rs.next())
+                {
+                    bug_id = rs.getInt("id");
+                }
+            }
+            else
+            {
+                while (rs.next())
+                {
+                    int id = rs.getInt("id");
+                    if(id > bug_id)
+                    {
+                        rs = bugState.executeQuery("SELECT * FROM issues ORDER BY id DESC LIMIT 0, "+(id-bug_id));
+                        while (rs.next())
+                        {
+                            id = rs.getInt("id");
+                            String type = rs.getInt("type") == 1 ? "Bug report" : "Feature request";
+                            String user = rs.getString("user");
+                            String name = rs.getString("name");
+                            bot.sendMessage(channel, "AntiCheat issue "+Colors.BOLD+id+Colors.NORMAL+" created: "+Colors.BOLD+type+Colors.NORMAL+" by "+Colors.BOLD+user+" | "+name+" | http://bugs.h31ix.net/issues.php?issue="+id);
+                        }
+                    }
+                }
+            }
+        }
+        catch (SQLException ex)
+        {
+            Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public static void updateCommit(String string)
+    {
+        for(String s : string.split("\n"))
+        {
+            bot.sendMessage(channel, s.replaceAll("<b>", Colors.BOLD).replaceAll("</b>", Colors.NORMAL));
+        }
     }
 
     private static void updateVersion(String newVersion)

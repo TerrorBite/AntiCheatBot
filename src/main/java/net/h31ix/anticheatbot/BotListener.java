@@ -219,6 +219,19 @@ public class BotListener extends ListenerAdapter implements Listener
                     event.respond("Usage: .bug [id] [close]");
                 }
             }
+            else if(command.equalsIgnoreCase(".bugreload"))
+            {
+                if(sender.getChannelsOpIn().contains(this.channel))
+                {
+                    AntiCheatBot.updateBugs();
+                    event.respond("Bugs updated");
+                }
+                else
+                {
+                    System.out.println("WARNING: "+sender.getNick()+" tried to load bugs without permission.");
+                    event.respond("Insufficient permissions.");
+                }
+            }
         }
         else
         {
