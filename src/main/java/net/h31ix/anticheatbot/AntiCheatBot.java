@@ -184,6 +184,7 @@ public class AntiCheatBot
         try {
             URL url = new URL("http://bugs.h31ix.net/api.php");
             URLConnection uconn = url.openConnection();
+            uconn.setDoOutput(true);
             OutputStreamWriter wr = new OutputStreamWriter(uconn.getOutputStream());
             wr.write(data);
             wr.flush();
