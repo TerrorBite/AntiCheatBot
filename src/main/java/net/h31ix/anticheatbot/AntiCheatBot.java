@@ -214,9 +214,12 @@ public class AntiCheatBot
             Connection bugConn = DriverManager.getConnection(bugsUrl);
             Statement bugState = bugConn.createStatement();
             PreparedStatement bugDetails = bugConn.prepareStatement("SELECT * FROM issues ORDER BY id DESC LIMIT 0, ?");
+            
+            // Retrieve the latest bug id in the database. This should return only one record
             ResultSet rs = bugState.executeQuery("SELECT id FROM issues ORDER BY id DESC LIMIT 0, 1");
             if(bug_id == 0)
             {
+                // If we don't have the previous latest bug ID on record to compare against, update to what it is now
                 while (rs.next())
                 {
                     bug_id = rs.getInt("id");
@@ -227,23 +230,25 @@ public class AntiCheatBot
                 while (rs.next())
                 {
                     int id = rs.getInt("id");
-                    if(id > bug_id)
+                    if(id > bug_id) // If there are new bugs since our last check:
                     {
+                        // Retrieve all of the new bugs from the database
                         bugDetails.clearParameters();
                         bugDetails.setInt(1, id-bug_id);
                         ResultSet newBug = bugDetails.executeQuery(); // Magical prepared statements
                         while (newBug.next())
-                        {
+                        { // For each new bug, send its details to IRC
                             id = newBug.getInt("id");
                             String type = newBug.getInt("type") == 1 ? "Bug report" : "Feature request";
                             String user = newBug.getString("user");
                             String name = newBug.getString("name");
-                            bot.sendMessage(channel, "AntiCheat issue "+Colors.BOLD+id+Colors.NORMAL+" created: "+Colors.BOLD+type+Colors.NORMAL+" by "+Colors.BOLD+user+" | "+name+" | http://bugs.h31ix.net/issues.php?issue="+id);
+                            bot.sendMessage(channel, String.format("AntiCheat issue %s created: %s by %s | %s | http://bugs.h31ix.net/issues.php?issue=%d", makeBold(Integer.toString(id)), makeBold(type), makeBold(user), makeBold(name), id ));
                         }
                         newBug.close();
                     }
-                    // Don't forget to update the saved id
+                    // Don't forget to save the new latest bug ID for next time
                     bug_id = id;
+                    break;
                 }
             }
             rs.close();
@@ -252,6 +257,10 @@ public class AntiCheatBot
         {
             Logger.getLogger(AntiCheatBot.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    public static String makeBold(String text) {
+        return Colors.BOLD+text+Colors.NORMAL;
     }
 
     public static void updateCommits()
