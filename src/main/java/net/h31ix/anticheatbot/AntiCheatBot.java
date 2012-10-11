@@ -213,6 +213,7 @@ public class AntiCheatBot
         {
             Connection bugConn = DriverManager.getConnection(bugsUrl);
             Statement bugState = bugConn.createStatement();
+            PreparedStatement bugDetails = bugConn.prepareStatement("SELECT * FROM issues ORDER BY id DESC LIMIT 0, ?");
             ResultSet rs = bugState.executeQuery("SELECT id FROM issues ORDER BY id DESC LIMIT 0, 1");
             if(bug_id == 0)
             {
@@ -228,18 +229,24 @@ public class AntiCheatBot
                     int id = rs.getInt("id");
                     if(id > bug_id)
                     {
-                        rs = bugState.executeQuery("SELECT * FROM issues ORDER BY id DESC LIMIT 0, "+(id-bug_id));
-                        while (rs.next())
+                        bugDetails.clearParameters();
+                        bugDetails.setInt(1, id-bug_id);
+                        ResultSet newBug = bugDetails.executeQuery(); // Magical prepared statements
+                        while (newBug.next())
                         {
-                            id = rs.getInt("id");
-                            String type = rs.getInt("type") == 1 ? "Bug report" : "Feature request";
-                            String user = rs.getString("user");
-                            String name = rs.getString("name");
+                            id = newBug.getInt("id");
+                            String type = newBug.getInt("type") == 1 ? "Bug report" : "Feature request";
+                            String user = newBug.getString("user");
+                            String name = newBug.getString("name");
                             bot.sendMessage(channel, "AntiCheat issue "+Colors.BOLD+id+Colors.NORMAL+" created: "+Colors.BOLD+type+Colors.NORMAL+" by "+Colors.BOLD+user+" | "+name+" | http://bugs.h31ix.net/issues.php?issue="+id);
                         }
+                        newBug.close();
                     }
+                    // Don't forget to update the saved id
+                    bug_id = id;
                 }
             }
+            rs.close();
         }
         catch (SQLException ex)
         {
